@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayLink Admin — UPI Payment Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --navy:       #0A1628;
+      --navy-mid:   #0F2044;
+      --navy-light: #1A3260;
+      --indigo:     #4F46E5;
+      --indigo-l:   #6366F1;
+      --indigo-xl:  #818CF8;
+      --emerald:    #10B981;
+      --emerald-l:  #34D399;
+      --gold:       #F59E0B;
+      --gold-l:     #FCD34D;
+      --bg:         #F0F4FF;
+      --surface:    #FFFFFF;
+      --surface2:   #F8FAFF;
+      --border:     #E2E8F8;
+      --text-1:     #0A1628;
+      --text-2:     #3D4F6E;
+      --text-3:     #8A9BBC;
+      --shadow-sm:  0 1px 3px rgba(10,22,40,.06), 0 1px 2px rgba(10,22,40,.04);
+      --shadow-md:  0 4px 16px rgba(10,22,40,.08), 0 2px 6px rgba(10,22,40,.04);
+      --shadow-lg:  0 12px 40px rgba(10,22,40,.12), 0 4px 12px rgba(10,22,40,.06);
+      --shadow-xl:  0 20px 60px rgba(10,22,40,.16);
+      --r-sm: 10px;
+      --r-md: 14px;
+      --r-lg: 20px;
+      --r-xl: 28px;
+    }
+
+    /* ─── RESET ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── BACKGROUND GRID ────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(79,70,229,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 110%, rgba(16,185,129,.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── TOP NAV ─────────────────────────────────────────── */
+    .topnav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--indigo), var(--emerald));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(79,70,229,.35);
+    }
+    .logo-text { font-size: .95rem; font-weight: 700; color: var(--navy); line-height: 1.2; }
+    .logo-sub { font-size: .68rem; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
+    .nav-right { display: flex; align-items: center; gap: 12px; }
+    .nav-badge {
+      font-size: .72rem; font-weight: 600;
+      background: linear-gradient(135deg, var(--emerald), var(--emerald-l));
+      color: #fff; padding: 4px 10px; border-radius: 999px;
+      letter-spacing: .04em;
+    }
+    .nav-avatar {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--navy), var(--navy-light));
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 700; color: #fff;
+      border: 2px solid var(--border);
+      cursor: pointer;
+    }
+
+    /* ─── MAIN LAYOUT ─────────────────────────────────────── */
+    .main-wrap {
+      position: relative; z-index: 1;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+    }
+    .page-header { margin-bottom: 2rem; }
+    .page-header h1 {
+      font-size: 1.6rem; font-weight: 800;
+      color: var(--navy);
+      letter-spacing: -.03em;
+    }
+    .page-header p {
+      font-size: .88rem; color: var(--text-2);
+      margin-top: 4px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.75rem;
+      align-items: start;
+    }
+
+    /* ─── STATS ROW ───────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 1.1rem 1.3rem;
+      box-shadow: var(--shadow-sm);
+      display: flex; align-items: center; gap: 12px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: var(--r-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .stat-icon.blue  { background: rgba(79,70,229,.1); }
+    .stat-icon.green { background: rgba(16,185,129,.1); }
+    .stat-icon.gold  { background: rgba(245,158,11,.1); }
+    .stat-label { font-size: .72rem; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; }
+    .stat-value { font-size: 1.3rem; font-weight: 800; color: var(--text-1); margin-top: 1px; line-height: 1; }
+    .stat-delta { font-size: .75rem; font-weight: 500; color: var(--emerald); margin-top: 2px; }
+
+    /* ─── CARD BASE ───────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 1.4rem 1.6rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-header-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, var(--indigo), var(--indigo-l));
+      display: flex; align-items: center; justify-content: center;
+      font-size: .9rem;
+    }
+    .card-header h2 {
+      font-size: 1rem; font-weight: 700; color: var(--navy);
+    }
+    .card-header p {
+      font-size: .75rem; color: var(--text-3); margin-top: 1px;
+    }
+    .card-body { padding: 1.6rem; }
+
+    /* ─── FORM ELEMENTS ───────────────────────────────────── */
+    .form-group { margin-bottom: 1.2rem; }
+    .form-label {
+      display: block;
+      font-size: .78rem; font-weight: 600; color: var(--text-2);
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em;
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-icon {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      font-size: 1rem; pointer-events: none; z-index: 1;
+    }
+    .form-input {
+      width: 100%;
+      height: 48px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 0 14px 0 42px;
+      font-size: .9rem;
+      font-family: 'Inter', sans-serif;
+      color: var(--text-1);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .form-input::placeholder { color: var(--text-3); }
+    .form-input:focus {
+      border-color: var(--indigo);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+    }
+    .form-input.no-icon { padding-left: 14px; }
+    textarea.form-input {
+      height: auto; min-height: 80px;
+      padding-top: 12px; resize: none;
+    }
+
+    /* ─── AMOUNT INPUT ────────────────────────────────────── */
+    .amount-prefix {
+      position: absolute; left: 42px; top: 50%; transform: translateY(-50%);
+      font-size: .95rem; font-weight: 700; color: var(--text-2); pointer-events: none;
+    }
+    .form-input.amount-field { padding-left: 68px; font-weight: 700; font-size: 1rem; }
+
+    /* ─── UPI SELECTOR ────────────────────────────────────── */
+    .upi-selector {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .upi-option {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      transition: all .2s;
+      user-select: none;
+    }
+    .upi-option:hover { border-color: var(--indigo-l); background: rgba(79,70,229,.04); }
+    .upi-option.selected {
+      border-color: var(--indigo);
+      background: rgba(79,70,229,.06);
+      box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+    }
+    .upi-radio {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: border-color .2s;
+    }
+    .upi-option.selected .upi-radio {
+      border-color: var(--indigo);
+    }
+    .upi-radio::after {
+      content: '';
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--indigo);
+      opacity: 0;
+      transform: scale(0);
+      transition: all .2s;
+    }
+    .upi-option.selected .upi-radio::after { opacity: 1; transform: scale(1); }
+    .upi-avatar {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .85rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .upi-info { flex: 1; min-width: 0; }
+    .upi-name { font-size: .85rem; font-weight: 600; color: var(--text-1); }
+    .upi-id { font-size: .75rem; font-family: 'JetBrains Mono', monospace; color: var(--text-3); margin-top: 1px; }
+    .upi-bank-tag {
+      font-size: .65rem; font-weight: 600;
+      padding: 2px 7px; border-radius: 999px;
+      background: rgba(79,70,229,.1); color: var(--indigo);
+      flex-shrink: 0;
+    }
+
+    /* ─── GENERATE BUTTON ─────────────────────────────────── */
+    .btn-generate {
+      width: 100%;
+      height: 52px;
+      background: linear-gradient(135deg, var(--indigo) 0%, #7C3AED 100%);
+      color: #fff;
+      border: none;
+      border-radius: var(--r-sm);
+      font-size: .95rem; font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 1.4rem;
+      transition: all .25s;
+      box-shadow: 0 4px 16px rgba(79,70,229,.4);
+      letter-spacing: .01em;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-generate::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,.15), transparent);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .btn-generate:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(79,70,229,.5); }
+    .btn-generate:hover::before { opacity: 1; }
+    .btn-generate:active { transform: translateY(0); }
+    .btn-generate .spinner {
+      display: none; width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    .btn-generate.loading .btn-text { display: none; }
+    .btn-generate.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── PREVIEW COLUMN ─────────────────────────────────── */
+    .preview-empty {
+      background: var(--surface);
+      border: 1.5px dashed var(--border);
+      border-radius: var(--r-lg);
+      min-height: 420px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px;
+      color: var(--text-3); text-align: center; padding: 2rem;
+      transition: opacity .3s;
+    }
+    .preview-empty .empty-icon { font-size: 3rem; opacity: .5; }
+    .preview-empty p { font-size: .88rem; max-width: 220px; line-height: 1.5; }
+
+    /* ─── PAYMENT CARD ────────────────────────────────────── */
+    .payment-result {
+      display: none;
+      animation: slideUp .45s cubic-bezier(.22,.68,0,1.2);
+    }
+    .payment-result.visible { display: block; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(24px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* The hero bank card */
+    .pay-card {
+      border-radius: var(--r-xl);
+      padding: 1.8rem;
+      position: relative;
+      overflow: hidden;
+      min-height: 180px;
+      margin-bottom: 1rem;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .pay-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 50%, #1E3A5F 100%);
+    }
+    .pay-card::after {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 220px; height: 220px;
+      border-radius: 50%;
+      background: rgba(79,70,229,.25);
+    }
+    .pay-card-blob2 {
+      position: absolute;
+      bottom: -80px; left: -40px;
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      background: rgba(16,185,129,.15);
+      pointer-events: none;
+    }
+    .pay-card-top {
+      position: relative; z-index: 1;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    .pay-card-label {
+      font-size: .7rem; font-weight: 500; color: rgba(255,255,255,.55);
+      text-transform: uppercase; letter-spacing: .1em;
+    }
+    .pay-card-upi {
+      font-size: .78rem; font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,.75); margin-top: 3px;
+    }
+    .pay-card-logo { font-size: 1.5rem; }
+    .pay-card-amount {
+      position: relative; z-index: 1;
+      margin-top: 1rem;
+    }
+    .pay-card-currency { font-size: .85rem; font-weight: 500; color: rgba(255,255,255,.65); }
+    .pay-card-num {
+      font-size: 2.4rem; font-weight: 800; color: #fff;
+      letter-spacing: -.03em; line-height: 1;
+    }
+    .pay-card-name {
+      font-size: .82rem; color: rgba(255,255,255,.7);
+      margin-top: 4px; font-weight: 500;
+    }
+    .pay-card-chip {
+      position: absolute; bottom: 1.4rem; right: 1.4rem; z-index: 1;
+      width: 44px; height: 33px; border-radius: 5px;
+      background: linear-gradient(135deg, var(--gold-l), var(--gold));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .pay-card-chip::after {
+      content: '';
+      width: 22px; height: 16px; border-radius: 2px;
+      border: 1.5px solid rgba(0,0,0,.2);
+      background: transparent;
+    }
+
+    /* QR section */
+    .qr-section {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 1.5rem;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      margin-bottom: 1rem;
+    }
+    .qr-title {
+      font-size: .72rem; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: .1em;
+    }
+    #qrcode {
+      width: 160px; height: 160px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #qrcode img, #qrcode canvas { border-radius: 8px; }
+    .qr-hint {
+      font-size: .78rem; color: var(--text-2); text-align: center;
+      line-height: 1.5;
+    }
+    .qr-hint strong { color: var(--indigo); }
+
+    /* Action buttons */
+    .action-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .action-row-full { margin-bottom: 0; }
+    .btn-action {
+      height: 46px;
+      border: none; border-radius: var(--r-sm);
+      font-size: .85rem; font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      transition: all .2s;
+    }
+    .btn-pay-now {
+      background: linear-gradient(135deg, var(--indigo) 0%, #7C3AED 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(79,70,229,.35);
+    }
+    .btn-pay-now:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(79,70,229,.45); }
+    .btn-copy {
+      background: var(--surface);
+      color: var(--text-1);
+      border: 1.5px solid var(--border);
+    }
+    .btn-copy:hover { border-color: var(--indigo-l); background: rgba(79,70,229,.04); }
+    .btn-whatsapp {
+      width: 100%; height: 48px;
+      background: linear-gradient(135deg, #25D366, #128C7E);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(37,211,102,.3);
+    }
+    .btn-whatsapp:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(37,211,102,.4); }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 2rem; right: 2rem; z-index: 999;
+      background: var(--navy);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: var(--r-sm);
+      font-size: .85rem; font-weight: 500;
+      box-shadow: var(--shadow-xl);
+      display: flex; align-items: center; gap: 8px;
+      opacity: 0; transform: translateY(10px);
+      transition: all .3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Link display */
+    .link-display {
+      background: var(--navy);
+      border-radius: var(--r-sm);
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem; color: var(--emerald-l);
+      word-break: break-all;
+      line-height: 1.5;
+      border: 1px solid var(--navy-light);
+      max-height: 64px; overflow-y: auto;
+    }
+
+    /* ─── UPI BANK COLORS ─────────────────────────────────── */
+    .acc-0 { background: linear-gradient(135deg, #1E3A5F, #2563EB); }
+    .acc-1 { background: linear-gradient(135deg, #065F46, #059669); }
+    .acc-2 { background: linear-gradient(135deg, #581C87, #9333EA); }
+    .acc-3 { background: linear-gradient(135deg, #92400E, #D97706); }
+
+    /* ─── SECTION DIVIDER ─────────────────────────────────── */
+    .divider {
+      height: 1px; background: var(--border);
+      margin: 1.2rem 0;
+    }
+
+    /* ─── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 840px) {
+      .grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: repeat(3,1fr); }
+      .topnav { padding: 0 1rem; }
+      .main-wrap { padding: 1.5rem 1rem; }
+      .pay-card-num { font-size: 1.9rem; }
+    }
+    @media (max-width: 560px) {
+      .stats-row { grid-template-columns: 1fr; }
+      .action-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── TOP NAV ─────────────────────────────────────────────── -->
+<nav class="topnav">
+  <div class="logo">
+    <div class="logo-icon">💳</div>
+    <div>
+      <div class="logo-text">PayLink</div>
+      <div class="logo-sub">Admin Dashboard</div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <span class="nav-badge">● Live</span>
+    <div class="nav-avatar">AD</div>
+  </div>
+</nav>
+
+<!-- ── MAIN ────────────────────────────────────────────────── -->
+<div class="main-wrap">
+
+  <div class="page-header">
+    <h1>UPI Payment Link Generator</h1>
+    <p>Create and share instant payment links with your customers</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon blue">🔗</div>
+      <div>
+        <div class="stat-label">Links Today</div>
+        <div class="stat-value" id="statLinks">0</div>
+        <div class="stat-delta">↑ session count</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">₹</div>
+      <div>
+        <div class="stat-label">Amount Generated</div>
+        <div class="stat-value" id="statAmount">₹0</div>
+        <div class="stat-delta">this session</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon gold">📤</div>
+      <div>
+        <div class="stat-label">Active Accounts</div>
+        <div class="stat-value">4</div>
+        <div class="stat-delta">UPI IDs ready</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grid -->
+  <div class="grid">
+
+    <!-- ── LEFT: FORM ──────────────────────────────────── -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon">⚡</div>
+        <div>
+          <h2>Generate Payment Link</h2>
+          <p>Fill details to create a UPI payment link</p>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <!-- UPI Account Selector -->
+        <div class="form-group">
+          <label class="form-label">🏦 &nbsp;Select UPI Account</label>
+          <div class="upi-selector" id="upiSelector">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Customer Name -->
+        <div class="form-group">
+          <label class="form-label">👤 &nbsp;Customer Name</label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" class="form-input" id="customerName"
+              placeholder="e.g. Rahul Sharma" autocomplete="off" />
+          </div>
+        </div>
+
+        <!-- Amount -->
+        <div class="form-group">
+          <label class="form-label">💰 &nbsp;Amount (INR)</label>
+          <div class="input-wrap">
+            <span class="input-icon">💰</span>
+            <span class="amount-prefix">₹</span>
+            <input type="number" class="form-input amount-field" id="amount"
+              placeholder="0.00" min="1" step="0.01" />
+          </div>
+        </div>
+
+        <!-- Remark -->
+        <div class="form-group">
+          <label class="form-label">📝 &nbsp;Remark / Note (Optional)</label>
+          <div class="input-wrap">
+            <span class="input-icon" style="top:14px;transform:none">📝</span>
+            <textarea class="form-input" id="remark"
+              placeholder="e.g. Invoice #1023, Order #456..."></textarea>
+          </div>
+        </div>
+
+        <button class="btn-generate" id="generateBtn" onclick="generateLink()">
+          <div class="spinner"></div>
+          <span class="btn-text">⚡ Generate Payment Link</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ── RIGHT: PREVIEW ──────────────────────────────── -->
+    <div id="previewCol">
+
+      <!-- Empty state -->
+      <div class="preview-empty" id="emptyState">
+        <div class="empty-icon">🎯</div>
+        <p>Fill in the details on the left and generate a payment link to preview it here.</p>
+        <p style="font-size:.75rem;color:var(--text-3);margin-top:4px">
+          QR code, share options, and Pay Now button will appear here.
+        </p>
+      </div>
+
+      <!-- Generated result -->
+      <div class="payment-result card" id="paymentResult">
+        <div class="card-header">
+          <div class="card-header-icon">✅</div>
+          <div>
+            <h2>Payment Link Ready</h2>
+            <p>Share with your customer</p>
+          </div>
+        </div>
+        <div class="card-body">
+
+          <!-- Hero bank card -->
+          <div class="pay-card" id="payCard">
+            <div class="pay-card-blob2"></div>
+            <div class="pay-card-top">
+              <div>
+                <div class="pay-card-label">Payable To</div>
+                <div class="pay-card-upi" id="resUpiId">—</div>
+              </div>
+              <div class="pay-card-logo">🇮🇳</div>
+            </div>
+            <div class="pay-card-amount">
+              <div class="pay-card-currency">INR</div>
+              <div class="pay-card-num" id="resAmount">₹0</div>
+              <div class="pay-card-name" id="resName">—</div>
+            </div>
+            <div class="pay-card-chip"></div>
+          </div>
+
+          <!-- QR Code -->
+          <div class="qr-section">
+            <div class="qr-title">📷 &nbsp;Scan to Pay</div>
+            <div id="qrcode"></div>
+            <div class="qr-hint">
+              Scan or Pay using any UPI app<br/>
+              <strong>PhonePe · GPay · Paytm · BHIM</strong>
+            </div>
+          </div>
+
+          <!-- Link display -->
+          <div class="link-display" id="linkDisplay">—</div>
+
+          <!-- Action buttons -->
+          <div class="action-row">
+            <button class="btn-action btn-pay-now" id="payNowBtn" onclick="payNow()">
+              ⚡ Pay Now
+            </button>
+            <button class="btn-action btn-copy" onclick="copyLink()">
+              📋 Copy Link
+            </button>
+          </div>
+          <div class="action-row action-row-full">
+            <button class="btn-action btn-whatsapp" onclick="shareWhatsApp()">
+              💬 &nbsp;Share on WhatsApp
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /right -->
+  </div><!-- /grid -->
+</div><!-- /main-wrap -->
+
+<!-- Toast -->
+<div class="toast" id="toast">✅ <span id="toastMsg">Copied!</span></div>
+
+<!-- ── SCRIPT ───────────────────────────────────────────────── -->
+<script>
+/* ─── DATA ──────────────────────────────────────────────── */
+const UPI_ACCOUNTS = [
+  {
+    id: 'atharvakeluskar484-1@oksbi',
+    name: 'Main Account',
+    bank: 'SBI',
+    label: 'Primary',
+    colorClass: 'acc-0'
+  },
+  {
+    id: 'oshianaghs024@okhdfcbank',
+    name: 'Business Account',
+    bank: 'HDFC',
+    label: 'Business',
+    colorClass: 'acc-1'
+  },
+  {
+    id: '9096733201@yescred',
+    name: 'Yes Credit',
+    bank: 'Yes Bank',
+    label: 'Credit',
+    colorClass: 'acc-2'
+  },
+  {
+    id: 'rutwikkeluskar91@okicici',
+    name: 'ICICI Primary',
+    bank: 'ICICI',
+    label: 'Personal',
+    colorClass: 'acc-3'
+  },
+  {
+    id: 'apurvkandalkar5862@okicici',
+    name: 'ICICI Secondary',
+    bank: 'ICICI',
+    label: 'Savings',
+    colorClass: 'acc-0'
+  }
+];
+
+/* ─── STATE ─────────────────────────────────────────────── */
+let selectedUpiIndex = 0;
+let currentLink = '';
+let sessionLinks = 0;
+let sessionAmount = 0;
+let qrInstance = null;
+
+/* ─── BUILD UPI SELECTOR ────────────────────────────────── */
+function buildSelector() {
+  const container = document.getElementById('upiSelector');
+  container.innerHTML = UPI_ACCOUNTS.map((acc, i) => `
+    <div class="upi-option ${i === 0 ? 'selected' : ''}"
+         onclick="selectUpi(${i})" id="upiOpt${i}">
+      <div class="upi-radio" id="radio${i}"></div>
+      <div class="upi-avatar ${acc.colorClass}">${acc.bank[0]}</div>
+      <div class="upi-info">
+        <div class="upi-name">${acc.name}</div>
+        <div class="upi-id">${acc.id}</div>
+      </div>
+      <div class="upi-bank-tag">${acc.bank}</div>
+    </div>
+  `).join('');
+}
+
+function selectUpi(index) {
+  document.querySelectorAll('.upi-option').forEach((el, i) => {
+    el.classList.toggle('selected', i === index);
+  });
+  selectedUpiIndex = index;
+}
+
+/* ─── GENERATE LINK ─────────────────────────────────────── */
+function generateLink() {
+  const name   = document.getElementById('customerName').value.trim();
+  const amount = parseFloat(document.getElementById('amount').value);
+  const remark = document.getElementById('remark').value.trim();
+  const acc    = UPI_ACCOUNTS[selectedUpiIndex];
+
+  // Validate
+  if (!name)       { showToast('⚠️ Please enter customer name', true); return; }
+  if (!amount || amount <= 0) { showToast('⚠️ Enter a valid amount', true); return; }
+
+  // Animate button
+  const btn = document.getElementById('generateBtn');
+  btn.classList.add('loading');
+
+  setTimeout(() => {
+    btn.classList.remove('loading');
+
+    // Build UPI deep link
+    const params = new URLSearchParams({
+      pa: acc.id,
+      pn: name,
+      am: amount.toFixed(2),
+      cu: 'INR',
+    });
+    if (remark) params.append('tn', remark);
+    currentLink = `upi://pay?${params.toString()}`;
+
+    // Update card visuals
+    document.getElementById('resUpiId').textContent = acc.id;
+    document.getElementById('resAmount').textContent =
+      '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('resName').textContent = `For: ${name}${remark ? ' · ' + remark : ''}`;
+    document.getElementById('linkDisplay').textContent = currentLink;
+    document.getElementById('payNowBtn').setAttribute('data-link', currentLink);
+
+    // Apply card gradient based on account
+    const payCard = document.getElementById('payCard');
+    payCard.className = 'pay-card'; // reset
+    const gradients = [
+      'linear-gradient(135deg, #0F2044 0%, #1E3A6E 100%)',
+      'linear-gradient(135deg, #064E3B 0%, #065F46 100%)',
+      'linear-gradient(135deg, #3B0764 0%, #581C87 100%)',
+      'linear-gradient(135deg, #78350F 0%, #92400E 100%)',
+      'linear-gradient(135deg, #0F2044 0%, #1E3A6E 100%)',
+    ];
+    payCard.style.background = gradients[selectedUpiIndex];
+
+    // QR code
+    renderQR(currentLink);
+
+    // Show result
+    document.getElementById('emptyState').style.display = 'none';
+    const result = document.getElementById('paymentResult');
+    result.classList.add('visible');
+
+    // Session stats
+    sessionLinks++;
+    sessionAmount += amount;
+    document.getElementById('statLinks').textContent = sessionLinks;
+    document.getElementById('statAmount').textContent =
+      '₹' + sessionAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+    // Toast
+    showToast('✅ Payment link generated!');
+  }, 680);
+}
+
+/* ─── QR CODE ───────────────────────────────────────────── */
+function renderQR(text) {
+  const container = document.getElementById('qrcode');
+  container.innerHTML = '';
+  qrInstance = new QRCode(container, {
+    text: text,
+    width: 160,
+    height: 160,
+    colorDark: '#0A1628',
+    colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+
+/* ─── ACTIONS ───────────────────────────────────────────── */
+function payNow() {
+  if (!currentLink) return;
+  window.location.href = currentLink;
+}
+
+function copyLink() {
+  if (!currentLink) return;
+  navigator.clipboard.writeText(currentLink)
+    .then(() => showToast('📋 Link copied to clipboard!'))
+    .catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = currentLink;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      showToast('📋 Link copied!');
+    });
+}
+
+function shareWhatsApp() {
+  if (!currentLink) return;
+  const name   = document.getElementById('customerName').value.trim();
+  const amount = parseFloat(document.getElementById('amount').value);
+  const msg = `Hi ${name},\n\nPlease complete your payment of *₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}* using the UPI link below:\n\n${currentLink}\n\n_Powered by PayLink Admin_`;
+  const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(waUrl, '_blank');
+}
+
+/* ─── TOAST ─────────────────────────────────────────────── */
+let toastTimer;
+function showToast(msg, isError = false) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.style.background = isError ? '#B91C1C' : 'var(--navy)';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+/* ─── ENTER KEY SUBMIT ──────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') generateLink();
+});
+
+/* ─── INIT ──────────────────────────────────────────────── */
+buildSelector();
+</script>
+</body>
+</html>
